@@ -2,6 +2,14 @@ const express = require("express");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const cors = require("cors");
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+const middlewares = require('./middlewares.js');
+const logs = require('./api/logs');
+
+console.log(process.env.DATABASE_URL);
+mongoose.connect(process.env.DATABASE_URL, {useNewUrlParser: true});
 
 
 const app = express();
@@ -10,8 +18,9 @@ const app = express();
 app.use(morgan("common"));
 app.use(helmet());
 app.use(cors({
-    origin: 'http://localhost:3000'
+    origin: process.env.CORS_ORIGIN
 }));
+app.use(express.json());
 
 app.get("/", (req, res) => {
     res.json({
@@ -19,21 +28,10 @@ app.get("/", (req, res) => {
     });
 });
 
-app.use((req, res, next) => {
-    const error = new Error(`Not Found - ${req.originalUrl}`);
-    res.status(404);
-    next(error);
-});
+app.use('/api/logs', logs);
 
-//If this is hit because another route threw an error the status code will be 200. If it doesn't then setting the status code to 500 which means internal server error.
-app.use((error, req, res, next) => {
-    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode);
-    res.json({
-        message: error.message,
-        stack: process.env.NODE_ENV == 'production' ? "You ain't seeing the stack track bruh" : error.stack
-    });
-});
+app.use(middlewares.notFound);
+app.use(middlewares.errorHandler);
 
 const port = process.env.PORT || 8080;
 
